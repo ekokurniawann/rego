@@ -47,3 +47,21 @@ func (t *TokenService) CreateAccess(ctx *context.Context, userId, userRole *stri
 
 	return tokenString, claims.ExpiresAt, nil
 }
+
+func (t *TokenService) ParseAccess(tokenString string) (*entity.AccessTokenClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &entity.AccessTokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return mySigningKey, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token: %w", err)
+	}
+
+	if claims, ok := token.Claims.(*entity.AccessTokenClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token claims or token is not valid")
+}
