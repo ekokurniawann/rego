@@ -32,3 +32,15 @@ func (r *RedisService) SetAccessToken(ctx context.Context, userId, tokenUUID str
 
 	return nil
 }
+
+func (r *RedisService) GetAccessToken(ctx context.Context, userId string) (string, error) {
+	cachedJson, err := r.client.Get(ctx, fmt.Sprintf("access-token-%s", userId)).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return "", nil
+		}
+		return "", fmt.Errorf("faied to fetch token from cache: %w", err)
+	}
+
+	return cachedJson, nil
+}

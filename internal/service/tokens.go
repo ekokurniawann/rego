@@ -3,6 +3,7 @@ package service
 import (
 	"belajar-redis/internal/entity"
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -64,4 +65,27 @@ func (t *TokenService) ParseAccess(tokenString string) (*entity.AccessTokenClaim
 	}
 
 	return nil, fmt.Errorf("invalid token claims or token is not valid")
+}
+
+func (t *TokenService) ValidateAccess(ctx *context.Context, claims *entity.AccessTokenClaims) error {
+	cacheJSON, err := t.redisService.GetAccessToken(*ctx, claims.UserId)
+	if err != nil {
+		return fmt.Errorf("error retrieving access token from cache: %w", err)
+	}
+
+	if cacheJSON == "" {
+		return fmt.Errorf("access token not found for user ID: %s", claims.UserId)
+	}
+
+	cachedTokens := &entity.AccessTokenCached{}
+	err = json.Unmarshal([]byte(cacheJSON), cachedTokens)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling cached token data: %w", err)
+	}
+
+	if cachedTokens.AccessUID != claims.UUID {
+		return fmt.Errorf("token UUID mismatch for user ID: %s", claims.UserId)
+	}
+
+	return nil
 }
