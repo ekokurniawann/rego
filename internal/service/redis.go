@@ -44,3 +44,24 @@ func (r *RedisService) GetAccessToken(ctx context.Context, userId string) (strin
 
 	return cachedJson, nil
 }
+
+func (r *RedisService) SetRefreshToken(ctx context.Context, tokenUUID string, expiredTime *time.Duration) error {
+	if expiredTime == nil {
+		defaultDuration := time.Hour * 24 * 7
+		expiredTime = &defaultDuration
+	}
+
+	cachedJson, err := json.Marshal(&entity.RefreshTokenCached{
+		RefreshUID: tokenUUID,
+	})
+	if err != nil {
+		return fmt.Errorf("can't marshal refresh token: %w", err)
+	}
+
+	redisKey := fmt.Sprintf("refresh-token-%s", tokenUUID)
+	if err := r.client.Set(ctx, redisKey, string(cachedJson), *expiredTime).Err(); err != nil {
+		return fmt.Errorf("can't cache refresh token: %w", err)
+	}
+
+	return nil
+}

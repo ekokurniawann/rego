@@ -89,3 +89,32 @@ func (t *TokenService) ValidateAccess(ctx *context.Context, claims *entity.Acces
 
 	return nil
 }
+
+func (t *TokenService) CreateRefresh(ctx context.Context, userId, userRole string) (string, *jwt.NumericDate, error) {
+	tokenUUID := uuid.NewString()
+	expiredTime := time.Hour * 24 * 7
+
+	claims := &entity.RefreshTokenClaims{
+		UserId:   userId,
+		RoleCode: userRole,
+		UUID:     tokenUUID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiredTime)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	ss, err := token.SignedString(mySigningKey)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to sign the token: %w", err)
+	}
+
+	err = t.redisService.SetRefreshToken(ctx, tokenUUID, &expiredTime)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to cache refresh token: %w", err)
+	}
+
+	return ss, claims.ExpiresAt, nil
+}
